@@ -5,32 +5,44 @@ from google.oauth2 import service_account  # Import Google OAuth2 library to han
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_FILE = 'path/to/your/credentials.json'  # Path to your service account credentials JSON file
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']  # Scope: only read access to Google Sheets
+SPREADSHEET_ID = 'your-google-sheet-id-here'  # ID of the Google Sheet
+RANGE_NAME = 'Sheet1!A1:E'  # Range of data to read from the sheet
 
-# ID of the Google Sheet you want to access (found in the sheet URL)
-SPREADSHEET_ID = 'your-google-sheet-id-here'
-# Range of data to read from the sheet (e.g., first 5 columns)
-RANGE_NAME = 'Sheet1!A1:E'
 
-# === AUTHENTICATION ===
-# Load service account credentials with the specified scopes
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+def authenticate_gsheet(service_account_file: str, scopes: list):
+    """Authenticate with Google Sheets API and return a service object."""
+    credentials = service_account.Credentials.from_service_account_file(
+        service_account_file, scopes=scopes)
+    service = build('sheets', 'v4', credentials=credentials)
+    return service.spreadsheets()
 
-# Build the Sheets API service using the credentials
-service = build('sheets', 'v4', credentials=credentials)
-# Access the 'spreadsheets' resource of the Sheets API
-sheet = service.spreadsheets()
 
-# === READ DATA ===
-# Make an API call to read values from the specified sheet and range
-result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range=RANGE_NAME).execute()
-# Extract the actual data values from the API response
-values = result.get('values', [])
+def read_sheet_data(sheet, spreadsheet_id: str, range_name: str):
+    """Read data from the specified Google Sheet range."""
+    result = sheet.values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
+    return result.get('values', [])
 
-# Check if any data was returned
-if not values:
-    print('No data found.')  # If no data, print a message
-else:
-    print('Data from sheet:')  # Otherwise, print the retrieved data
-    for row in values:
-        print(row)  # Print each row individually
+
+def display_data(values: list):
+    """Print data rows or show a 'No data found' message."""
+    if not values:
+        print('No data found.')
+    else:
+        print('Data from sheet:')
+        for row in values:
+            print(row)
+
+
+def main():
+    # Authenticate and connect to the Google Sheet
+    sheet = authenticate_gsheet(SERVICE_ACCOUNT_FILE, SCOPES)
+
+    # Read data from the Google Sheet
+    values = read_sheet_data(sheet, SPREADSHEET_ID, RANGE_NAME)
+
+    # Display the data
+    display_data(values)
+
+
+if __name__ == '__main__':
+    main()
