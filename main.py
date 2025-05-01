@@ -3,10 +3,10 @@ from google.oauth2 import service_account  # Import Google OAuth2 library to han
 
 
 # === CONFIGURATION ===
-SERVICE_ACCOUNT_FILE = 'path/to/your/credentials.json'  # Path to your service account credentials JSON file
+SERVICE_ACCOUNT_FILE = 'qas-credentials.json'  # Path to the service account credentials JSON file
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']  # Scope: only read access to Google Sheets
-SPREADSHEET_ID = 'your-google-sheet-id-here'  # ID of the Google Sheet
-RANGE_NAME = 'Sheet1!A1:E'  # Range of data to read from the sheet
+SPREADSHEET_ID = ''  # ID of the Google Sheet
+RANGE_NAME = 'Quotes!A1:E'  # Range of data to read from the sheet
 
 
 def authenticate_gsheet(service_account_file: str, scopes: list):
