@@ -5,8 +5,8 @@ from google.oauth2 import service_account  # Import Google OAuth2 library to han
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_FILE = 'qas-credentials.json'  # Path to the service account credentials JSON file
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']  # Scope: only read access to Google Sheets
-SPREADSHEET_ID = ''  # ID of the Google Sheet
-RANGE_NAME = 'Quotes!A1:E'  # Range of data to read from the sheet
+SPREADSHEET_ID = '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0'  # ID of the Google Sheet
+RANGE_NAME = 'Quotes!A1:Z1'  # Range of data to read from the sheet
 
 
 def authenticate_gsheet(service_account_file: str, scopes: list):
@@ -33,6 +33,26 @@ def display_data(values: list):
             print(row)
 
 
+def print_sheet_header(sheet, spreadsheet_id: str, range_name: str):
+    """Fetch and print the header row from a Google Sheet."""
+
+    # Request the specified range (e.g., first row only)
+    result = sheet.values().get(
+        spreadsheetId=spreadsheet_id,
+        range=range_name
+    ).execute()
+
+    # Get all rows returned (will be a list of lists)
+    values = result.get('values', [])
+
+    if values:
+        header = values[0]  # First row is the header
+        print("Header row:")
+        print(header)
+    else:
+        print("No data found in the range.")
+
+
 def append_row(sheet, spreadsheet_id: str, range_name: str, values: list):
     """Append a new row to the Google Sheet."""
     body = {
@@ -51,12 +71,14 @@ def append_row(sheet, spreadsheet_id: str, range_name: str, values: list):
 def main():
     # Authenticate and connect to the Google Sheet
     sheet = authenticate_gsheet(SERVICE_ACCOUNT_FILE, SCOPES)
+    #
+    # # Read data from the Google Sheet
+    # values = read_sheet_data(sheet, SPREADSHEET_ID, RANGE_NAME)
+    #
+    # # Display the data
+    # display_data(values)
 
-    # Read data from the Google Sheet
-    values = read_sheet_data(sheet, SPREADSHEET_ID, RANGE_NAME)
-
-    # Display the data
-    display_data(values)
+    print_sheet_header(sheet, SPREADSHEET_ID, RANGE_NAME)
 
 
 if __name__ == '__main__':
