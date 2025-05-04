@@ -4,8 +4,8 @@ from google.oauth2 import service_account  # Import Google OAuth2 library to han
 
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_FILE = 'qas-credentials.json'  # Path to the service account credentials JSON file
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']  # Scope: only read access to Google Sheets
-SPREADSHEET_ID = ''  # ID of the Google Sheet
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SPREADSHEET_ID = '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0'  # ID of the Google Sheet
 RANGE_NAME = 'Quotes!A1:Z2'  # Range of data to read from the sheet
 
 
@@ -55,6 +55,36 @@ def print_sheet_header(sheet, spreadsheet_id: str, range_name: str):
         print("No data found in the range.")
 
 
+def append_quote_row(sheet, spreadsheet_id: str, tab_name: str, new_row: list):
+    """
+    Appends a new quote row to the specified tab in the Google Sheet.
+
+    Args:
+        sheet: Authenticated Google Sheets API client.
+        spreadsheet_id: ID of the spreadsheet.
+        tab_name: Name of the tab (sheet) to append to.
+        new_row: List of values in the same order as your header.
+    """
+    # Define the target range — doesn't matter where exactly, just use A1 to anchor
+    target_range = f"{tab_name}!A1"
+
+    # Format the request body
+    body = {
+        'values': [new_row]
+    }
+
+    # Append the row
+    response = sheet.values().append(
+        spreadsheetId=spreadsheet_id,
+        range=target_range,
+        valueInputOption='USER_ENTERED',  # allows formulas, auto-formatting
+        insertDataOption='INSERT_ROWS',  # always append as a new row
+        body=body
+    ).execute()
+
+    print(f"{response.get('updates', {}).get('updatedRows', 0)} row(s) appended.")
+
+
 def main():
     # Authenticate and connect to the Google Sheet
     sheet = authenticate_gsheet(SERVICE_ACCOUNT_FILE, SCOPES)
@@ -65,10 +95,29 @@ def main():
     # # Display the data
     # display_data(values)
 
-    # print_sheet_header(sheet, SPREADSHEET_ID, RANGE_NAME)
-    choices = get_column_dropdown_choices(sheet, SPREADSHEET_ID, "Quotes",
-                                          "G")  # Column G = 'Service Type'
-    print("Dropdown options:", choices)
+    new_row = [
+        '',  # Leave Quote ID empty — sheet will auto-generate
+        'Quote Block 15',  # Quote Block
+        '2025-05-11',  # Date
+        'Bob Example',  # Client Name
+        'bob@example.org',  # Email
+        'Example Org',  # Organization
+        'Interpretation',  # Service Type
+        'English <> French',  # Language Pair
+        '',  # Word Count (not used for interpretation)
+        '2',  # Duration (hrs)
+        'In-person',  # Modality
+        '60',  # Rate
+        '120',  # Total
+        '',  # (blank column)
+        'Interpretation: 2 hrs × 60',  # Details
+        'Client prefers Monday',  # Notes
+        'TarjimlyQuote_20250511_Bob',  # Output Filename
+        '120',  # Grand Total
+        '', '', '', ''  # Document Studio columns
+    ]
+
+    append_quote_row(sheet, SPREADSHEET_ID, 'Quotes', new_row)
 
 
 if __name__ == '__main__':
