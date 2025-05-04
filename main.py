@@ -5,8 +5,8 @@ from google.oauth2 import service_account  # Import Google OAuth2 library to han
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_FILE = 'qas-credentials.json'  # Path to the service account credentials JSON file
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']  # Scope: only read access to Google Sheets
-SPREADSHEET_ID = '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0'  # ID of the Google Sheet
-RANGE_NAME = 'Quotes!A1:Z1'  # Range of data to read from the sheet
+SPREADSHEET_ID = ''  # ID of the Google Sheet
+RANGE_NAME = 'Quotes!A1:Z2'  # Range of data to read from the sheet
 
 
 def authenticate_gsheet(service_account_file: str, scopes: list):
@@ -46,26 +46,13 @@ def print_sheet_header(sheet, spreadsheet_id: str, range_name: str):
     values = result.get('values', [])
 
     if values:
-        header = values[0]  # First row is the header
-        print("Header row:")
-        print(header)
+        # header = values[0]  # First row is the header
+        # print("Header row:")
+        # print(header)
+        for row in values:
+            print(row)
     else:
         print("No data found in the range.")
-
-
-def append_row(sheet, spreadsheet_id: str, range_name: str, values: list):
-    """Append a new row to the Google Sheet."""
-    body = {
-        'values': [values]
-    }
-    result = sheet.values().append(
-        spreadsheetId=spreadsheet_id,
-        range=range_name,
-        valueInputOption='RAW',
-        insertDataOption='INSERT_ROWS',
-        body=body
-    ).execute()
-    print(f"{result.get('updates').get('updatedRows', 0)} row(s) appended.")
 
 
 def main():
@@ -78,7 +65,10 @@ def main():
     # # Display the data
     # display_data(values)
 
-    print_sheet_header(sheet, SPREADSHEET_ID, RANGE_NAME)
+    # print_sheet_header(sheet, SPREADSHEET_ID, RANGE_NAME)
+    choices = get_column_dropdown_choices(sheet, SPREADSHEET_ID, "Quotes",
+                                          "G")  # Column G = 'Service Type'
+    print("Dropdown options:", choices)
 
 
 if __name__ == '__main__':
