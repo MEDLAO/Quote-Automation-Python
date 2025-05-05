@@ -95,29 +95,29 @@ def main():
     # # Display the data
     # display_data(values)
 
-    new_row = [
-        '',  # Leave Quote ID empty — sheet will auto-generate
-        'Quote Block 15',  # Quote Block
-        '2025-05-11',  # Date
-        'Bob Example',  # Client Name
-        'bob@example.org',  # Email
-        'Example Org',  # Organization
-        'Interpretation',  # Service Type
-        'English <> French',  # Language Pair
-        '',  # Word Count (not used for interpretation)
-        '2',  # Duration (hrs)
-        'In-person',  # Modality
-        '60',  # Rate
-        '120',  # Total
-        '',  # (blank column)
-        'Interpretation: 2 hrs × 60',  # Details
-        'Client prefers Monday',  # Notes
-        'TarjimlyQuote_20250511_Bob',  # Output Filename
-        '120',  # Grand Total
-        '', '', '', ''  # Document Studio columns
-    ]
+    # new_row = [
+    #     '',  # Leave Quote ID empty — sheet will auto-generate
+    #     'Quote Block 15',  # Quote Block
+    #     '2025-05-11',  # Date
+    #     'Bob Example',  # Client Name
+    #     'bob@example.org',  # Email
+    #     'Example Org',  # Organization
+    #     'Interpretation',  # Service Type
+    #     'English <> French',  # Language Pair
+    #     '',  # Word Count (not used for interpretation)
+    #     '2',  # Duration (hrs)
+    #     'In-person',  # Modality
+    #     '60',  # Rate
+    #     '120',  # Total
+    #     '',  # (blank column)
+    #     'Interpretation: 2 hrs × 60',  # Details
+    #     'Client prefers Monday',  # Notes
+    #     'TarjimlyQuote_20250511_Bob',  # Output Filename
+    #     '120',  # Grand Total
+    #     '', '', '', ''  # Document Studio columns
+    # ]
 
-    append_quote_row(sheet, SPREADSHEET_ID, 'Quotes', new_row)
+    # append_quote_row(sheet, SPREADSHEET_ID, 'Quotes', new_row)
 
 
 if __name__ == '__main__':
