@@ -120,18 +120,8 @@ def main():
     # append_quote_row(sheet, SPREADSHEET_ID, 'Quotes', new_row)
 
 
-def group_quotes_by_organization(values, header):
-    """
-    Group multiple service rows under the same Quote ID and Organization.
-
-    Args:
-        values (list of list): All rows from the sheet, including header
-        header (list): The header row
-
-    Returns:
-        list of dict: One dictionary per grouped quote, ready to send to Document Studio
-    """
-    # Find relevant column indices
+def group_rows_by_quote_id(data, header):
+    """Group rows by Quote ID and return a structured dictionary."""
     idx = {key: header.index(key) for key in [
         'Quote ID', 'Date', 'Client Name', 'Organization', 'Email', 'Notes',
         'Service Type', 'Language Pair', 'Modality', 'Word Count', 'Duration (hrs)',
@@ -140,31 +130,28 @@ def group_quotes_by_organization(values, header):
 
     grouped = {}
 
-    for row in values[1:]:  # Skip header
-        row += [''] * (len(header) - len(row))  # Pad if row is too short
+    for row in data[1:]:  # Skip header
+        row += [''] * (len(header) - len(row))  # Pad short rows
         row_data = dict(zip(header, row))
 
         quote_id = row_data.get("Quote ID", "").strip()
-        org = row_data.get("Organization", "").strip()
+        if not quote_id:
+            continue
 
-        if not quote_id or not org:
-            continue  # Skip incomplete rows
-
-        group_key = f"{org}::{quote_id}"
-
-        if group_key not in grouped:
-            grouped[group_key] = {
+        if quote_id not in grouped:
+            grouped[quote_id] = {
                 'Quote ID': quote_id,
                 'Date': row_data.get('Date', ''),
                 'Client Name': row_data.get('Client Name', ''),
-                'Organization': org,
                 'Email': row_data.get('Email', ''),
+                'Organization': row_data.get('Organization', ''),
                 'Notes': row_data.get('Notes', ''),
                 'rows': [],
                 'Grand Total': 0.0
             }
 
-        service_row = {
+        # Add the service details to the quote's 'rows' list
+        service_data = {
             'Service Type': row_data.get('Service Type', ''),
             'Language Pair': row_data.get('Language Pair', ''),
             'Modality': row_data.get('Modality', ''),
@@ -175,21 +162,15 @@ def group_quotes_by_organization(values, header):
             'Total': row_data.get('Total', '')
         }
 
-        grouped[group_key]['rows'].append(service_row)
+        grouped[quote_id]['rows'].append(service_data)
 
-        # Sum the totals (ignore if invalid)
+        # Accumulate total
         try:
-            grouped[group_key]['Grand Total'] += float(row_data.get('Total', '0').strip())
+            grouped[quote_id]['Grand Total'] += float(row_data.get('Total', '0'))
         except ValueError:
             pass
 
-    # Finalize structure (format totals)
-    results = []
-    for quote in grouped.values():
-        quote['Grand Total'] = f"{quote['Grand Total']:.2f}"
-        results.append(quote)
-
-    return results
+    return list(grouped.values())
 
 
 if __name__ == '__main__':
