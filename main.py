@@ -1,12 +1,13 @@
 from googleapiclient.discovery import build  # Import the Google API client library to build service objects
 from google.oauth2 import service_account  # Import Google OAuth2 library to handle authentication
+import json
 
 
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_FILE = 'qas-credentials.json'  # Path to the service account credentials JSON file
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0'  # ID of the Google Sheet
-RANGE_NAME = 'Quotes!A1:Z2'  # Range of data to read from the sheet
+RANGE_NAME = 'Quotes!A1:Z'  # Range of data to read from the sheet
 
 
 def authenticate_gsheet(service_account_file: str, scopes: list):
@@ -85,48 +86,8 @@ def append_quote_row(sheet, spreadsheet_id: str, tab_name: str, new_row: list):
     print(f"{response.get('updates', {}).get('updatedRows', 0)} row(s) appended.")
 
 
-def main():
-    # Authenticate and connect to the Google Sheet
-    sheet = authenticate_gsheet(SERVICE_ACCOUNT_FILE, SCOPES)
-    #
-    # # Read data from the Google Sheet
-    # values = read_sheet_data(sheet, SPREADSHEET_ID, RANGE_NAME)
-    #
-    # # Display the data
-    # display_data(values)
-
-    # new_row = [
-    #     '',  # Leave Quote ID empty — sheet will auto-generate
-    #     'Quote Block 15',  # Quote Block
-    #     '2025-05-11',  # Date
-    #     'Bob Example',  # Client Name
-    #     'bob@example.org',  # Email
-    #     'Example Org',  # Organization
-    #     'Interpretation',  # Service Type
-    #     'English <> French',  # Language Pair
-    #     '',  # Word Count (not used for interpretation)
-    #     '2',  # Duration (hrs)
-    #     'In-person',  # Modality
-    #     '60',  # Rate
-    #     '120',  # Total
-    #     '',  # (blank column)
-    #     'Interpretation: 2 hrs × 60',  # Details
-    #     'Client prefers Monday',  # Notes
-    #     'TarjimlyQuote_20250511_Bob',  # Output Filename
-    #     '120',  # Grand Total
-    #     '', '', '', ''  # Document Studio columns
-    # ]
-
-    # append_quote_row(sheet, SPREADSHEET_ID, 'Quotes', new_row)
-
-
 def group_rows_by_quote_id(data, header):
     """Group rows by Quote ID and return a structured dictionary."""
-    idx = {key: header.index(key) for key in [
-        'Quote ID', 'Date', 'Client Name', 'Organization', 'Email', 'Notes',
-        'Service Type', 'Language Pair', 'Modality', 'Word Count', 'Duration (hrs)',
-        'Rate', 'Details', 'Total'
-    ] if key in header}
 
     grouped = {}
 
@@ -171,6 +132,57 @@ def group_rows_by_quote_id(data, header):
             pass
 
     return list(grouped.values())
+
+
+def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
+    """Write grouped quotes to an existing sheet starting at cell A1."""
+
+    # Define the header
+    header = ['Quote ID', 'Date', 'Client Name', 'Email', 'Organization', 'Notes', 'rows',
+              'Grand Total']
+    rows_to_write = [header]
+
+    # Build the data rows
+    for entry in grouped_data:
+        rows_to_write.append([
+            entry['Quote ID'],
+            entry['Date'],
+            entry['Client Name'],
+            entry['Email'],
+            entry['Organization'],
+            entry['Notes'],
+            json.dumps(entry['rows']),  # convert rows list to JSON string
+            f"{entry['Grand Total']:.2f}"
+        ])
+
+    # Write to the target sheet (must already exist)
+    sheet.values().update(
+        spreadsheetId=spreadsheet_id,
+        range=f"{target_sheet_name}!A1",
+        valueInputOption='RAW',
+        body={"values": rows_to_write}
+    ).execute()
+
+    print(f"Grouped data written to existing sheet '{target_sheet_name}'.")
+
+
+def main():
+    # Step 1: Authenticate and connect to Google Sheet
+    sheet = authenticate_gsheet(SERVICE_ACCOUNT_FILE, SCOPES)
+
+    # Step 2: Read all data from the Quotes sheet
+    values = read_sheet_data(sheet, SPREADSHEET_ID, RANGE_NAME)
+
+    if not values:
+        print("No data found in source sheet.")
+        return
+
+    # Step 3: Extract header and group the rows
+    header = values[0]
+    grouped = group_rows_by_quote_id(values, header)
+
+    # Step 4: Write grouped quotes into an existing sheet for Document Studio
+    write_grouped_data(sheet, '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0', 'GroupedQuotes', grouped)
 
 
 if __name__ == '__main__':
