@@ -182,7 +182,7 @@ def main():
     grouped = group_rows_by_quote_id(values, header)
 
     # Step 4: Write grouped quotes into an existing sheet for Document Studio
-    write_grouped_data(sheet, '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0', 'GroupedQuotes', grouped)
+    # write_grouped_data(sheet, '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0', 'GroupedQuotes', grouped)
 
 
 if __name__ == '__main__':
