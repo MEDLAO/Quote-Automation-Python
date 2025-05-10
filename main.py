@@ -6,7 +6,8 @@ import json
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_FILE = 'qas-credentials.json'  # Path to the service account credentials JSON file
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SPREADSHEET_ID = '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0'  # ID of the Google Sheet
+SPREADSHEET_ID_SOURCE = '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0'  # ID of the Google Sheet
+SPREADSHEET_ID_TARGET = ''
 RANGE_NAME = 'Quotes!A1:Z'  # Range of data to read from the sheet
 
 
