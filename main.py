@@ -139,12 +139,18 @@ def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
     """Write grouped quotes to an existing sheet starting at cell A1."""
 
     # Define the header
-    header = ['Quote ID', 'Date', 'Client Name', 'Email', 'Organization', 'Notes', 'rows',
+    header = ['Quote ID', 'Date', 'Client Name', 'Email', 'Organization', 'Notes', 'Services',
               'Grand Total']
     rows_to_write = [header]
 
-    # Build the data rows
     for entry in grouped_data:
+        # Convert rows to a compact JSON string
+        rows_json = json.dumps(entry['rows'], ensure_ascii=False, separators=(',', ':'))
+
+        # Escape quotes and wrap in outer quotes so Google Sheets stores it as a literal string
+        escaped_json_string = '"' + rows_json.replace('"', '\\"') + '"'
+
+        # Prepare row
         rows_to_write.append([
             entry['Quote ID'],
             entry['Date'],
@@ -152,11 +158,11 @@ def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
             entry['Email'],
             entry['Organization'],
             entry['Notes'],
-            json.dumps(entry['rows']),  # convert rows list to JSON string
+            escaped_json_string,
             f"{entry['Grand Total']:.2f}"
         ])
 
-    # Write to the target sheet (must already exist)
+    # Write the data to the target sheet
     sheet.values().update(
         spreadsheetId=spreadsheet_id,
         range=f"{target_sheet_name}!A1",
@@ -172,7 +178,7 @@ def main():
     sheet = authenticate_gsheet(SERVICE_ACCOUNT_FILE, SCOPES)
 
     # Step 2: Read all data from the Quotes sheet
-    values = read_sheet_data(sheet, SPREADSHEET_ID, RANGE_NAME)
+    values = read_sheet_data(sheet, SPREADSHEET_ID_SOURCE, RANGE_NAME)
 
     if not values:
         print("No data found in source sheet.")
