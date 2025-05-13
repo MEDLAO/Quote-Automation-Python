@@ -112,13 +112,13 @@ def group_rows_by_quote_id(data, header):
                 'Grand Total': 0.0
             }
 
-        # Add the service details to the quote's 'rows' list
+        # Normalize keys (underscored) for compatibility with Document Studio
         service_data = {
-            'Service Type': row_data.get('Service Type', ''),
-            'Language Pair': row_data.get('Language Pair', ''),
+            'Service_Type': row_data.get('Service Type', ''),
+            'Language_Pair': row_data.get('Language Pair', ''),
             'Modality': row_data.get('Modality', ''),
-            'Word Count': row_data.get('Word Count', ''),
-            'Duration (hrs)': row_data.get('Duration (hrs)', ''),
+            'Word_Count': row_data.get('Word Count', ''),
+            'Duration_hrs': row_data.get('Duration (hrs)', ''),
             'Rate': row_data.get('Rate', ''),
             'Details': row_data.get('Details', ''),
             'Total': row_data.get('Total', '')
@@ -189,7 +189,7 @@ def main():
     grouped = group_rows_by_quote_id(values, header)
 
     # Step 4: Write grouped quotes into an existing sheet for Document Studio
-    # write_grouped_data(sheet, '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0', 'GroupedQuotes', grouped)
+    write_grouped_data(sheet, '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0', 'GroupedQuotes', grouped)
 
 
 if __name__ == '__main__':
