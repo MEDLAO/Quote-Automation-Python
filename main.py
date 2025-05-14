@@ -87,90 +87,90 @@ def append_quote_row(sheet, spreadsheet_id: str, tab_name: str, new_row: list):
     print(f"{response.get('updates', {}).get('updatedRows', 0)} row(s) appended.")
 
 
-def group_rows_by_quote_id(data, header):
-    """Group rows by Quote ID and return a structured dictionary."""
-
-    grouped = {}
-
-    for row in data[1:]:  # Skip header
-        row += [''] * (len(header) - len(row))  # Pad short rows
-        row_data = dict(zip(header, row))
-
-        quote_id = row_data.get("Quote ID", "").strip()
-        if not quote_id:
-            continue
-
-        if quote_id not in grouped:
-            grouped[quote_id] = {
-                'Quote ID': quote_id,
-                'Date': row_data.get('Date', ''),
-                'Client Name': row_data.get('Client Name', ''),
-                'Email': row_data.get('Email', ''),
-                'Organization': row_data.get('Organization', ''),
-                'Notes': row_data.get('Notes', ''),
-                'rows': [],
-                'Grand Total': 0.0
-            }
-
-        # Normalize keys (underscored) for compatibility with Document Studio
-        service_data = {
-            'Service_Type': row_data.get('Service Type', ''),
-            'Language_Pair': row_data.get('Language Pair', ''),
-            'Modality': row_data.get('Modality', ''),
-            'Word_Count': row_data.get('Word Count', ''),
-            'Duration_hrs': row_data.get('Duration (hrs)', ''),
-            'Rate': row_data.get('Rate', ''),
-            'Details': row_data.get('Details', ''),
-            'Total': row_data.get('Total', '')
-        }
-
-        grouped[quote_id]['rows'].append(service_data)
-
-        # Accumulate total
-        try:
-            grouped[quote_id]['Grand Total'] += float(row_data.get('Total', '0'))
-        except ValueError:
-            pass
-
-    return list(grouped.values())
-
-
-def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
-    """Write grouped quotes to an existing sheet starting at cell A1."""
-
-    # Define the header
-    header = ['Quote ID', 'Date', 'Client Name', 'Email', 'Organization', 'Notes', 'Services',
-              'Grand Total']
-    rows_to_write = [header]
-
-    for entry in grouped_data:
-        # Convert rows to a compact JSON string
-        rows_json = json.dumps(entry['rows'], ensure_ascii=False, separators=(',', ':'))
-
-        # Escape quotes and wrap in outer quotes so Google Sheets stores it as a literal string
-        escaped_json_string = '"' + rows_json.replace('"', '\\"') + '"'
-
-        # Prepare row
-        rows_to_write.append([
-            entry['Quote ID'],
-            entry['Date'],
-            entry['Client Name'],
-            entry['Email'],
-            entry['Organization'],
-            entry['Notes'],
-            escaped_json_string,
-            f"{entry['Grand Total']:.2f}"
-        ])
-
-    # Write the data to the target sheet
-    sheet.values().update(
-        spreadsheetId=spreadsheet_id,
-        range=f"{target_sheet_name}!A1",
-        valueInputOption='RAW',
-        body={"values": rows_to_write}
-    ).execute()
-
-    print(f"Grouped data written to existing sheet '{target_sheet_name}'.")
+# def group_rows_by_quote_id(data, header):
+#     """Group rows by Quote ID and return a structured dictionary."""
+#
+#     grouped = {}
+#
+#     for row in data[1:]:  # Skip header
+#         row += [''] * (len(header) - len(row))  # Pad short rows
+#         row_data = dict(zip(header, row))
+#
+#         quote_id = row_data.get("Quote ID", "").strip()
+#         if not quote_id:
+#             continue
+#
+#         if quote_id not in grouped:
+#             grouped[quote_id] = {
+#                 'Quote ID': quote_id,
+#                 'Date': row_data.get('Date', ''),
+#                 'Client Name': row_data.get('Client Name', ''),
+#                 'Email': row_data.get('Email', ''),
+#                 'Organization': row_data.get('Organization', ''),
+#                 'Notes': row_data.get('Notes', ''),
+#                 'rows': [],
+#                 'Grand Total': 0.0
+#             }
+#
+#         # Normalize keys (underscored) for compatibility with Document Studio
+#         service_data = {
+#             'Service_Type': row_data.get('Service Type', ''),
+#             'Language_Pair': row_data.get('Language Pair', ''),
+#             'Modality': row_data.get('Modality', ''),
+#             'Word_Count': row_data.get('Word Count', ''),
+#             'Duration_hrs': row_data.get('Duration (hrs)', ''),
+#             'Rate': row_data.get('Rate', ''),
+#             'Details': row_data.get('Details', ''),
+#             'Total': row_data.get('Total', '')
+#         }
+#
+#         grouped[quote_id]['rows'].append(service_data)
+#
+#         # Accumulate total
+#         try:
+#             grouped[quote_id]['Grand Total'] += float(row_data.get('Total', '0'))
+#         except ValueError:
+#             pass
+#
+#     return list(grouped.values())
+#
+#
+# def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
+#     """Write grouped quotes to an existing sheet starting at cell A1."""
+#
+#     # Define the header
+#     header = ['Quote ID', 'Date', 'Client Name', 'Email', 'Organization', 'Notes', 'Services',
+#               'Grand Total']
+#     rows_to_write = [header]
+#
+#     for entry in grouped_data:
+#         # Convert rows to a compact JSON string
+#         rows_json = json.dumps(entry['rows'], ensure_ascii=False, separators=(',', ':'))
+#
+#         # Escape quotes and wrap in outer quotes so Google Sheets stores it as a literal string
+#         escaped_json_string = '"' + rows_json.replace('"', '\\"') + '"'
+#
+#         # Prepare row
+#         rows_to_write.append([
+#             entry['Quote ID'],
+#             entry['Date'],
+#             entry['Client Name'],
+#             entry['Email'],
+#             entry['Organization'],
+#             entry['Notes'],
+#             escaped_json_string,
+#             f"{entry['Grand Total']:.2f}"
+#         ])
+#
+#     # Write the data to the target sheet
+#     sheet.values().update(
+#         spreadsheetId=spreadsheet_id,
+#         range=f"{target_sheet_name}!A1",
+#         valueInputOption='RAW',
+#         body={"values": rows_to_write}
+#     ).execute()
+#
+#     print(f"Grouped data written to existing sheet '{target_sheet_name}'.")
 
 
 def main():
