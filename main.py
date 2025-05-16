@@ -173,6 +173,73 @@ def append_quote_row(sheet, spreadsheet_id: str, tab_name: str, new_row: list):
 #     print(f"Grouped data written to existing sheet '{target_sheet_name}'.")
 
 
+def flatten_quotes(values, header):
+    """
+    Merges rows with the same Quote ID into a single row per quote.
+    Dynamically flattens service fields with numbered suffixes.
+    """
+    from collections import defaultdict
+
+    # Normalize header for index lookup
+    col_index = {col: i for i, col in enumerate(header)}
+
+    # Group rows by Quote ID
+    grouped = defaultdict(list)
+    for row in values[1:]:  # skip header
+        row += [''] * (len(header) - len(row))  # pad short rows
+        quote_id = row[col_index['Quote ID']].strip()
+        grouped[quote_id].append(row)
+
+    # Define service-specific fields (to flatten)
+    service_fields = [
+        'Service Type', 'Language Pair', 'Modality',
+        'Word Count', 'Duration (hrs)', 'Rate', 'Details', 'Total'
+    ]
+
+    # Define static fields to keep only from the first row per quote
+    static_fields = [
+        'Quote ID', 'Date', 'Client Name', 'Email', 'Organization', 'Notes'
+    ]
+
+    # Determine max number of services
+    max_services = max(len(services) for services in grouped.values())
+
+    # Construct header dynamically
+    flat_header = static_fields[:]
+    for i in range(1, max_services + 1):
+        for field in service_fields:
+            flat_header.append(f"{field} {i}")
+    flat_header.append("Grand Total")
+
+    # Build flattened rows
+    flat_rows = []
+
+    for quote_id, rows in grouped.items():
+        base_row = rows[0]
+        flat_row = [base_row[col_index[field]] for field in static_fields]
+
+        grand_total = 0.0
+
+        for i in range(max_services):
+            if i < len(rows):
+                service_row = rows[i]
+                for field in service_fields:
+                    value = service_row[col_index.get(field, '')]
+                    flat_row.append(value)
+                try:
+                    grand_total += float(service_row[col_index.get('Total', '')])
+                except (ValueError, IndexError):
+                    pass
+            else:
+                # pad missing service
+                flat_row.extend([''] * len(service_fields))
+
+        flat_row.append(f"{grand_total:.2f}")
+        flat_rows.append(flat_row)
+
+    return flat_header, flat_rows
+
+
 def main():
     # Step 1: Authenticate and connect to Google Sheet
     sheet = authenticate_gsheet(SERVICE_ACCOUNT_FILE, SCOPES)
