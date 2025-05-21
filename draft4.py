@@ -2,29 +2,23 @@ from gdoctableapppy import gdoctableapp
 from google.oauth2 import service_account
 
 
-# === Setup ===
-SCOPES = ['https://www.googleapis.com/auth/documents']
-SERVICE_ACCOUNT_FILE = 'your-service-account.json'
-DOCUMENT_ID = 'your-doc-id'
+# === CONFIGURATION ===
+SERVICE_ACCOUNT_FILE = 'qas-credentials.json'
+DOCUMENT_ID = '18OVjzAQnTZKqhFmiaemIaHaw0QV7G8fPgMDGnwh-Wpg'
+SCOPES = ['https://www.googleapis.com/auth/documents', 'https://www.googleapis.com/auth/drive']
 
+# === AUTHENTICATE ===
 creds = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 
-gdoc = gdoctableapp.DocsTable(creds)
 
-# === Read all tables ===
-tables = gdoc.GetTables(DOCUMENT_ID)
-print(f"Found {len(tables)} tables.")
+print(f"Using document: https://docs.google.com/document/d/{DOCUMENT_ID}")
 
-# === Get and print first table ===
-values = gdoc.GetValues(DOCUMENT_ID, tableIndex=0)
-for row in values:
-    print(row)
+resource = {
+    "service_account": creds,
+    "documentId": DOCUMENT_ID,
+}
+res = gdoctableapp.GetTables(resource)
+print(res)
 
-# === Set new values ===
-new_values = [
-    ['Service Type', 'Language Pair', 'Modality'],
-    ['Translation', 'English <> French', 'Remote'],
-    ['Interpretation', 'Arabic <> English', 'On-site']
-]
-gdoc.SetValues(DOCUMENT_ID, tableIndex=0, values=new_values)
+
