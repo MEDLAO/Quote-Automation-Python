@@ -1,5 +1,6 @@
 from googleapiclient.discovery import build  # Import the Google API client library to build service objects
 from google.oauth2 import service_account  # Import Google OAuth2 library to handle authentication
+from gdoctableapppy import gdoctableapp
 import json
 
 
@@ -12,7 +13,7 @@ SCOPES = [
 ]
 SPREADSHEET_ID_SOURCE = '1wiAQXkSvcOS8QdLeST2AmjsaV03_bS-1dIM3XpiNNq0'  # ID of the Google Sheet
 SPREADSHEET_ID_TARGET = ''
-TEMPLATE_DOC_ID = 'your-template-doc-id'
+TEMPLATE_DOC_ID = '18OVjzAQnTZKqhFmiaemIaHaw0QV7G8fPgMDGnwh-Wpg'
 RANGE_NAME = 'Quotes!A1:Z'  # Range of data to read from the sheet
 
 
@@ -39,7 +40,14 @@ def copy_template(drive_service, template_id, new_name):
     return copied['id']
 
 
-# === STEP 1 - Group the services per Quote-ID in GroupedQuotes ===
+# === STEP 1 - Fetch/Read the data from Quotes Spreadsheet ===
+def read_sheet_data(sheet, spreadsheet_id: str, range_name: str):
+    """Read data from the specified Google Sheet range."""
+    result = sheet.values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
+    return result.get('values', [])
+
+
+# === STEP 2 - Group the fetched data per Quote-ID ===
 def group_rows_by_quote_id(data, header):
     """Group rows by Quote ID and return a structured dictionary."""
 
@@ -86,3 +94,172 @@ def group_rows_by_quote_id(data, header):
             pass
 
     return list(grouped.values())
+
+
+# === STEP 3 - Write the grouped data to GroupedQuotes Spreadsheet ===
+def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
+    """Write grouped quotes to an existing sheet starting at cell A1."""
+
+    # Define the header
+    header = ['Quote ID', 'Date', 'Client Name', 'Email', 'Organization', 'Notes', 'Services',
+              'Grand Total']
+    rows_to_write = [header]
+
+    for entry in grouped_data:
+        # Convert rows to a compact JSON string
+        rows_json = json.dumps(entry['rows'], ensure_ascii=False, separators=(',', ':'))
+
+        # Escape quotes and wrap in outer quotes so Google Sheets stores it as a literal string
+        escaped_json_string = '"' + rows_json.replace('"', '\\"') + '"'
+
+        # Prepare row
+        rows_to_write.append([
+            entry['Quote ID'],
+            entry['Date'],
+            entry['Client Name'],
+            entry['Email'],
+            entry['Organization'],
+            entry['Notes'],
+            escaped_json_string,
+            f"{entry['Grand Total']:.2f}"
+        ])
+
+    # Write the data to the target sheet
+    sheet.values().update(
+        spreadsheetId=spreadsheet_id,
+        range=f"{target_sheet_name}!A1",
+        valueInputOption='RAW',
+        body={"values": rows_to_write}
+    ).execute()
+
+    print(f"Grouped data written to existing sheet '{target_sheet_name}'.")
+
+
+# === STEP 4 - Generate the Quotes documents and add the right number of empty rows ===
+def insert_empty_row_after(doc_id, docs_service, entry, table_index=0, after_row=1):
+    """
+    Inserts (number of services - 1) empty rows into the first table of a Google Doc.
+    """
+    num_services = len(entry.get('rows', []))
+
+    if num_services <= 1:
+        return  # Only 1 row needed, already in template
+
+    # Get the document content
+    doc = docs_service.documents().get(documentId=doc_id).execute()
+    content = doc.get('body', {}).get('content', [])
+
+    # Find the specified table
+    table_counter = 0
+    for element in content:
+        if 'table' in element:
+            if table_counter == table_index:
+                table_start_index = element['startIndex']
+                break
+            table_counter += 1
+    else:
+        print("Table not found.")
+        return
+
+    # Build requests to insert (num_services - 1) rows
+    requests = []
+    for i in range(num_services - 1):
+        requests.append({
+            'insertTableRow': {
+                'tableCellLocation': {
+                    'tableStartLocation': {'index': table_start_index},
+                    'rowIndex': after_row + i
+                },
+                'insertBelow': True
+            }
+        })
+
+    # Execute the insert requests
+    docs_service.documents().batchUpdate(
+        documentId=doc_id,
+        body={'requests': requests}
+    ).execute()
+
+    print(f"{len(requests)} empty row(s) inserted for Quote ID {entry['Quote ID']}.")
+
+
+def fill_services_table(doc_id, creds, services, table_index=0, start_row=1, start_col=0):
+    """
+    Fills the services table in a Google Doc using gdoctableapp.
+
+    Args:
+        doc_id (str): ID of the target Google Doc.
+        creds: Authenticated service account credentials.
+        services (list): A list of lists representing service rows.
+        table_index (int): Index of the table in the document (default: 0).
+        start_row (int): Row to start filling from (default: 1 = after header).
+        start_col (int): Column to start filling from (default: 0).
+    """
+    resource = {
+        "service_account": creds,
+        "documentId": doc_id,
+        "tableIndex": table_index,
+        "values": [
+            {
+                "values": services,
+                "range": {
+                    "startRowIndex": start_row,
+                    "startColumnIndex": start_col
+                }
+            }
+        ]
+    }
+
+    res = gdoctableapp.SetValues(resource)
+    print(f"Filled {len(services)} service row(s) in document {doc_id}.")
+    return res
+
+
+# def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, template_id):
+#     for entry in grouped_data:
+#         # Copy the Google Doc template
+#         copied_file = gdrive.copy(
+#             fileId=template_id,
+#             body={'name': f"Quote_{entry['Quote ID']}"}
+#         ).execute()
+#         new_doc_id = copied_file['id']
+#
+#         # Insert correct number of empty rows
+#         insert_empty_row_after(new_doc_id, gdoc, entry)
+#
+#         print(f"Document created: https://docs.google.com/document/d/{new_doc_id}")
+
+
+def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, template_id, creds):
+    """
+    Copies the template for each quote, inserts empty rows, and fills the table with service data.
+
+    Args:
+        grouped_data (list): List of grouped quote entries (each with 'Quote ID' and 'Services').
+        gdoc: Authenticated Google Docs API client.
+        gdrive: Authenticated Google Drive API client.
+        template_id (str): Google Doc template ID.
+        creds: Authenticated service account credentials for gdoctableapp.
+    """
+    for entry in grouped_data:
+        # Step 1: Copy the template
+        copied_file = gdrive.copy(
+            fileId=template_id,
+            body={'name': f"Quote_{entry['Quote ID']}"}
+        ).execute()
+        new_doc_id = copied_file['id']
+
+        # Step 2: Insert correct number of empty rows
+        insert_empty_row_after(new_doc_id, gdoc, entry)
+
+        # Step 3: Fill table with service data
+        services = entry["Services"]  # assuming already a list of lists
+        fill_services_table(
+            doc_id=new_doc_id,
+            creds=creds,
+            services=services
+        )
+
+        # Final log
+        print(f"Document created and filled: https://docs.google.com/document/d/{new_doc_id}")
+
