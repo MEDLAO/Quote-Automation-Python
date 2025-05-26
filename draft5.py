@@ -50,7 +50,6 @@ def read_sheet_data(sheet, spreadsheet_id: str, range_name: str):
 # === STEP 2 - Group the fetched data per Quote-ID ===
 def group_rows_by_quote_id(data, header):
     """Group rows by Quote ID and return a structured dictionary."""
-
     grouped = {}
 
     for row in data[1:]:  # Skip header
@@ -70,7 +69,8 @@ def group_rows_by_quote_id(data, header):
                 'Organization': row_data.get('Organization', ''),
                 'Notes': row_data.get('Notes', ''),
                 'rows': [],
-                'Grand Total': 0.0
+                'Grand Total': 0.0,
+                'Num Services': 0
             }
 
         # Normalize keys (underscored) for compatibility with Document Studio
@@ -86,8 +86,8 @@ def group_rows_by_quote_id(data, header):
         }
 
         grouped[quote_id]['rows'].append(service_data)
+        grouped[quote_id]['Num Services'] += 1  # INCREMENT
 
-        # Accumulate total
         try:
             grouped[quote_id]['Grand Total'] += float(row_data.get('Total', '0'))
         except ValueError:
@@ -102,17 +102,14 @@ def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
 
     # Define the header
     header = ['Quote ID', 'Date', 'Client Name', 'Email', 'Organization', 'Notes', 'Services',
-              'Grand Total']
+              'Grand Total', 'Num Services']
     rows_to_write = [header]
 
     for entry in grouped_data:
-        # Convert rows to a compact JSON string
+        # Convert rows to a compact JSON string (no escaping)
         rows_json = json.dumps(entry['rows'], ensure_ascii=False, separators=(',', ':'))
 
-        # Escape quotes and wrap in outer quotes so Google Sheets stores it as a literal string
-        escaped_json_string = '"' + rows_json.replace('"', '\\"') + '"'
-
-        # Prepare row
+        # Prepare row without extra escaping
         rows_to_write.append([
             entry['Quote ID'],
             entry['Date'],
@@ -120,8 +117,9 @@ def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
             entry['Email'],
             entry['Organization'],
             entry['Notes'],
-            escaped_json_string,
-            f"{entry['Grand Total']:.2f}"
+            rows_json,
+            f"{entry['Grand Total']:.2f}",
+            entry['Num Services']
         ])
 
     # Write the data to the target sheet
@@ -215,21 +213,6 @@ def fill_services_table(doc_id, creds, services, table_index=0, start_row=1, sta
     return res
 
 
-# def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, template_id):
-#     for entry in grouped_data:
-#         # Copy the Google Doc template
-#         copied_file = gdrive.copy(
-#             fileId=template_id,
-#             body={'name': f"Quote_{entry['Quote ID']}"}
-#         ).execute()
-#         new_doc_id = copied_file['id']
-#
-#         # Insert correct number of empty rows
-#         insert_empty_row_after(new_doc_id, gdoc, entry)
-#
-#         print(f"Document created: https://docs.google.com/document/d/{new_doc_id}")
-
-
 def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, template_id, creds):
     """
     Copies the template for each quote, inserts empty rows, and fills the table with service data.
@@ -252,8 +235,22 @@ def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, template_id, cr
         # Step 2: Insert correct number of empty rows
         insert_empty_row_after(new_doc_id, gdoc, entry)
 
-        # Step 3: Fill table with service data
-        services = entry["Services"]  # assuming already a list of lists
+        # Step 3: Transform entry["rows"] into a list of lists
+        services = [
+            [
+                s.get('Service_Type', ''),
+                s.get('Language_Pair', ''),
+                s.get('Modality', ''),
+                s.get('Word_Count', ''),
+                s.get('Duration_hrs', ''),
+                s.get('Rate', ''),
+                s.get('Details', ''),
+                s.get('Total', '')
+            ]
+            for s in entry["rows"]
+        ]
+
+        # Step 4: Fill table with service data
         fill_services_table(
             doc_id=new_doc_id,
             creds=creds,
@@ -263,3 +260,37 @@ def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, template_id, cr
         # Final log
         print(f"Document created and filled: https://docs.google.com/document/d/{new_doc_id}")
 
+
+def main():
+    # Step 1: Authenticate all Google services
+    sheet = authenticate_gsheet(SERVICE_ACCOUNT_FILE, SCOPES)
+    gdoc = authenticate_gdoc(SERVICE_ACCOUNT_FILE, SCOPES)
+    gdrive = authenticate_drive(SERVICE_ACCOUNT_FILE, SCOPES)
+
+    # Step 2: Create credentials object for gdoctableapp
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    )
+
+    # Step 3: Read data from the source spreadsheet
+    values = read_sheet_data(sheet, SPREADSHEET_ID_SOURCE, RANGE_NAME)
+    if not values:
+        print("No data found in the source sheet.")
+        return
+
+    # Step 4: Group the rows by Quote ID
+    header = values[0]
+    grouped_data = group_rows_by_quote_id(values, header)
+
+    # Step 5: Generate quote documents from grouped data
+    generate_docs_for_grouped_quotes(
+        grouped_data=grouped_data,
+        gdoc=gdoc,
+        gdrive=gdrive,
+        template_id=TEMPLATE_DOC_ID,
+        creds=creds
+    )
+
+
+if __name__ == '__main__':
+    main()
