@@ -25,7 +25,7 @@ def authenticate_gsheet(service_account_file, scopes):
 
 def authenticate_gdoc(service_account_file, scopes):
     credentials = service_account.Credentials.from_service_account_file(service_account_file, scopes=scopes)
-    return build('docs', 'v1', credentials=credentials).documents()
+    return build('docs', 'v1', credentials=credentials)
 
 
 def authenticate_drive(service_account_file, scopes):
