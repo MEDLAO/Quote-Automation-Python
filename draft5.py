@@ -172,11 +172,14 @@ def insert_empty_row_after(doc_id, docs_service, entry, table_index=0, after_row
             }
         })
 
-    # Execute the insert requests
-    docs_service.documents().batchUpdate(
-        documentId=doc_id,
-        body={'requests': requests}
-    ).execute()
+    if requests:
+        docs_service.documents().batchUpdate(
+            documentId=doc_id,
+            body={'requests': requests}
+        ).execute()
+        print(f"{len(requests)} empty row(s) inserted for Quote ID {entry['Quote ID']}.")
+    else:
+        print(f"No insert requests created for Quote ID {entry['Quote ID']}.")
 
     print(f"{len(requests)} empty row(s) inserted for Quote ID {entry['Quote ID']}.")
 
