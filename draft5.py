@@ -73,6 +73,10 @@ def group_rows_by_quote_id(data, header):
                 'Num Services': 0
             }
 
+        # Skip row if Total is "Manual"
+        if row_data.get('Total', '').strip().lower() == 'manual':
+            continue
+
         # Normalize keys (underscored) for compatibility with Document Studio
         service_data = {
             'Service_Type': row_data.get('Service Type', ''),
