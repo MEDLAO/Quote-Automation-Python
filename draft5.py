@@ -49,17 +49,18 @@ def read_sheet_data(sheet, spreadsheet_id: str, range_name: str):
 
 # === STEP 2 - Group the fetched data per Quote-ID ===
 def group_rows_by_quote_id(data, header):
-    """Group rows by Quote ID and return a structured dictionary."""
+    """Group rows by Quote ID, skipping rows with Total == 'Manual' and removing empty groups."""
     grouped = {}
 
-    for row in data[1:]:  # Skip header
-        row += [''] * (len(header) - len(row))  # Pad short rows
+    for row in data[1:]:  # Skip header row
+        row += [''] * (len(header) - len(row))  # Pad short rows with empty strings
         row_data = dict(zip(header, row))
 
         quote_id = row_data.get("Quote ID", "").strip()
         if not quote_id:
-            continue
+            continue  # Skip rows without a Quote ID
 
+        # Initialize a new group if this Quote ID is new
         if quote_id not in grouped:
             grouped[quote_id] = {
                 'Quote ID': quote_id,
@@ -68,16 +69,16 @@ def group_rows_by_quote_id(data, header):
                 'Email': row_data.get('Email', ''),
                 'Organization': row_data.get('Organization', ''),
                 'Notes': row_data.get('Notes', ''),
-                'rows': [],
+                'rows': [],  # Will hold valid service rows
                 'Grand Total': 0.0,
                 'Num Services': 0
             }
 
-        # Skip row if Total is "Manual"
+        # Skip this row if the Total field is 'Manual'
         if row_data.get('Total', '').strip().lower() == 'manual':
             continue
 
-        # Normalize keys (underscored) for compatibility with Document Studio
+        # Collect and normalize service data
         service_data = {
             'Service_Type': row_data.get('Service Type', ''),
             'Language_Pair': row_data.get('Language Pair', ''),
@@ -89,15 +90,18 @@ def group_rows_by_quote_id(data, header):
             'Total': row_data.get('Total', '')
         }
 
+        # Add valid row to the group
         grouped[quote_id]['rows'].append(service_data)
-        grouped[quote_id]['Num Services'] += 1  # INCREMENT
+        grouped[quote_id]['Num Services'] += 1
 
+        # Try adding the Total to the Grand Total
         try:
             grouped[quote_id]['Grand Total'] += float(row_data.get('Total', '0'))
         except ValueError:
-            pass
+            pass  # Ignore totals that are not numeric
 
-    return list(grouped.values())
+    # Remove groups that have no valid rows (i.e., only "Manual" rows were skipped)
+    return [entry for entry in grouped.values() if entry['rows']]
 
 
 # === STEP 3 - Write the grouped data to GroupedQuotes Spreadsheet ===
@@ -140,18 +144,19 @@ def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
 # === STEP 4 - Generate the Quotes documents and add the right number of empty rows ===
 def insert_empty_row_after(doc_id, docs_service, entry, table_index=0, after_row=1):
     """
-    Inserts (number of services - 1) empty rows into the first table of a Google Doc.
+    Inserts (number of services - 1) empty rows into the specified table of a Google Doc.
     """
     num_services = len(entry.get('rows', []))
 
+    # No need to insert if only one service (the template already includes one row)
     if num_services <= 1:
-        return  # Only 1 row needed, already in template
+        return
 
-    # Get the document content
+    # Retrieve the document structure
     doc = docs_service.documents().get(documentId=doc_id).execute()
     content = doc.get('body', {}).get('content', [])
 
-    # Find the specified table
+    # Locate the start index of the desired table
     table_counter = 0
     for element in content:
         if 'table' in element:
@@ -163,7 +168,7 @@ def insert_empty_row_after(doc_id, docs_service, entry, table_index=0, after_row
         print("Table not found.")
         return
 
-    # Build requests to insert (num_services - 1) rows
+    # Prepare insertion requests for (num_services - 1) rows
     requests = []
     for i in range(num_services - 1):
         requests.append({
@@ -176,6 +181,7 @@ def insert_empty_row_after(doc_id, docs_service, entry, table_index=0, after_row
             }
         })
 
+    # Send requests to Google Docs API
     if requests:
         docs_service.documents().batchUpdate(
             documentId=doc_id,
@@ -184,8 +190,6 @@ def insert_empty_row_after(doc_id, docs_service, entry, table_index=0, after_row
         print(f"{len(requests)} empty row(s) inserted for Quote ID {entry['Quote ID']}.")
     else:
         print(f"No insert requests created for Quote ID {entry['Quote ID']}.")
-
-    print(f"{len(requests)} empty row(s) inserted for Quote ID {entry['Quote ID']}.")
 
 
 def fill_services_table(doc_id, creds, services, table_index=0, start_row=1, start_col=0):
@@ -289,13 +293,20 @@ def main():
     header = values[0]
     grouped_data = group_rows_by_quote_id(values, header)
 
-    # Step 5: Generate quote documents from grouped data
-    generate_docs_for_grouped_quotes(
-        grouped_data=grouped_data,
-        gdoc=gdoc,
-        gdrive=gdrive,
-        template_id=TEMPLATE_DOC_ID,
-        creds=creds
+    # # Step 5: Generate quote documents from grouped data
+    # generate_docs_for_grouped_quotes(
+    #     grouped_data=grouped_data,
+    #     gdoc=gdoc,
+    #     gdrive=gdrive,
+    #     template_id=TEMPLATE_DOC_ID,
+    #     creds=creds
+    # )
+
+    write_grouped_data(
+        sheet=sheet,
+        spreadsheet_id=SPREADSHEET_ID_SOURCE,
+        target_sheet_name="GroupedQuotes",
+        grouped_data=grouped_data
     )
 
 
