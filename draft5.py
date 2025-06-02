@@ -90,6 +90,10 @@ def group_rows_by_quote_id(data, header):
             'Total': row_data.get('Total', '')
         }
 
+        # Skip service rows where all fields are empty
+        if not any(str(value).strip() for value in service_data.values()):
+            continue
+
         # Add valid row to the group
         grouped[quote_id]['rows'].append(service_data)
         grouped[quote_id]['Num Services'] += 1
@@ -106,18 +110,30 @@ def group_rows_by_quote_id(data, header):
 
 # === STEP 3 - Write the grouped data to GroupedQuotes Spreadsheet ===
 def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
-    """Write grouped quotes to an existing sheet starting at cell A1."""
+    """
+    Write grouped quotes to an existing sheet starting at cell A1,
+    ensuring that rows with 'Total' == 'Manual' are excluded.
+    """
 
-    # Define the header
+    # Define the header for the GroupedQuotes sheet
     header = ['Quote ID', 'Date', 'Client Name', 'Email', 'Organization', 'Notes', 'Services',
               'Grand Total', 'Num Services']
     rows_to_write = [header]
 
     for entry in grouped_data:
-        # Convert rows to a compact JSON string (no escaping)
-        rows_json = json.dumps(entry['rows'], ensure_ascii=False, separators=(',', ':'))
+        # Filter out any service rows where Total is 'Manual' (as a double safety check)
+        filtered_rows = [
+            row for row in entry['rows']
+            if str(row.get('Total', '')).strip().lower() != 'manual'
+        ]
 
-        # Prepare row without extra escaping
+        if not filtered_rows:
+            continue  # Skip this entry if it contains no valid rows
+
+        # Convert the filtered service rows into a compact JSON string for storage
+        rows_json = json.dumps(filtered_rows, ensure_ascii=False, separators=(',', ':'))
+
+        # Add the processed entry to the output
         rows_to_write.append([
             entry['Quote ID'],
             entry['Date'],
@@ -130,7 +146,7 @@ def write_grouped_data(sheet, spreadsheet_id, target_sheet_name, grouped_data):
             entry['Num Services']
         ])
 
-    # Write the data to the target sheet
+    # Write all collected rows to the target sheet
     sheet.values().update(
         spreadsheetId=spreadsheet_id,
         range=f"{target_sheet_name}!A1",
@@ -293,20 +309,20 @@ def main():
     header = values[0]
     grouped_data = group_rows_by_quote_id(values, header)
 
-    # # Step 5: Generate quote documents from grouped data
-    # generate_docs_for_grouped_quotes(
-    #     grouped_data=grouped_data,
-    #     gdoc=gdoc,
-    #     gdrive=gdrive,
-    #     template_id=TEMPLATE_DOC_ID,
-    #     creds=creds
-    # )
-
     write_grouped_data(
         sheet=sheet,
         spreadsheet_id=SPREADSHEET_ID_SOURCE,
         target_sheet_name="GroupedQuotes",
         grouped_data=grouped_data
+    )
+
+    # Step 5: Generate quote documents from grouped data
+    generate_docs_for_grouped_quotes(
+        grouped_data=grouped_data,
+        gdoc=gdoc,
+        gdrive=gdrive,
+        template_id=TEMPLATE_DOC_ID,
+        creds=creds
     )
 
 
