@@ -47,6 +47,33 @@ def read_sheet_data(sheet, spreadsheet_id: str, range_name: str):
     return result.get('values', [])
 
 
+def extract_drive_file_id(url):
+    """Extracts the file ID from a Google Drive 'open?id=' style URL."""
+    if "open?id=" in url:
+        return url.split("open?id=")[1].split("&")[0]
+    return None
+
+
+def share_document(gdrive, doc_id, anyone=True, email=None):
+    """
+    Shares a Google Doc either publicly (anyone with the link) or with a specific email.
+    """
+    body = {
+        'type': 'anyone' if anyone else 'user',
+        'role': 'writer',
+    }
+
+    if email:
+        body['type'] = 'user'
+        body['emailAddress'] = email
+
+    gdrive.permissions().create(
+        fileId=doc_id,
+        body=body,
+        fields='id'
+    ).execute()
+
+
 # === STEP 2 - Group the fetched data per Quote-ID ===
 def group_rows_by_quote_id(data, header):
     """Group rows by Quote ID, skipping rows with Total == 'Manual' and removing empty groups."""
@@ -60,6 +87,10 @@ def group_rows_by_quote_id(data, header):
         if not quote_id:
             continue  # Skip rows without a Quote ID
 
+        # Extract document link and ID
+        doc_url = row_data.get("[Document Studio] File Link #4zzo1e", "").strip()
+        doc_id = extract_drive_file_id(doc_url)
+
         # Initialize a new group if this Quote ID is new
         if quote_id not in grouped:
             grouped[quote_id] = {
@@ -69,6 +100,7 @@ def group_rows_by_quote_id(data, header):
                 'Email': row_data.get('Email', ''),
                 'Organization': row_data.get('Organization', ''),
                 'Notes': row_data.get('Notes', ''),
+                'Document ID': doc_id,
                 'rows': [],  # Will hold valid service rows
                 'Grand Total': 0.0,
                 'Num Services': 0
@@ -242,27 +274,21 @@ def fill_services_table(doc_id, creds, services, table_index=0, start_row=1, sta
 
 def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, template_id, creds):
     """
-    Copies the template for each quote, inserts empty rows, and fills the table with service data.
-
-    Args:
-        grouped_data (list): List of grouped quote entries (each with 'Quote ID' and 'Services').
-        gdoc: Authenticated Google Docs API client.
-        gdrive: Authenticated Google Drive API client.
-        template_id (str): Google Doc template ID.
-        creds: Authenticated service account credentials for gdoctableapp.
+    Opens each Document Studio-generated doc by its ID, inserts rows, and fills service table.
     """
     for entry in grouped_data:
-        # Step 1: Copy the template
-        copied_file = gdrive.copy(
-            fileId=template_id,
-            body={'name': f"Quote_{entry['Quote ID']}"}
-        ).execute()
-        new_doc_id = copied_file['id']
+        doc_id = entry.get("Document ID")
+        if not doc_id:
+            print(f"Skipping Quote ID {entry['Quote ID']} (no doc ID found).")
+            continue
 
-        # Step 2: Insert correct number of empty rows
-        insert_empty_row_after(new_doc_id, gdoc, entry)
+        # Share the document before modifying
+        share_document(gdrive, doc_id)
 
-        # Step 3: Transform entry["rows"] into a list of lists
+        # Step 1: Insert correct number of empty rows
+        insert_empty_row_after(doc_id, gdoc, entry)
+
+        # Step 2: Transform entry["rows"] into a list of lists
         services = [
             [
                 s.get('Service_Type', ''),
@@ -277,15 +303,14 @@ def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, template_id, cr
             for s in entry["rows"]
         ]
 
-        # Step 4: Fill table with service data
+        # Step 3: Fill the service table
         fill_services_table(
-            doc_id=new_doc_id,
+            doc_id=doc_id,
             creds=creds,
             services=services
         )
 
-        # Final log
-        print(f"Document created and filled: https://docs.google.com/document/d/{new_doc_id}")
+        print(f"Document filled: https://docs.google.com/document/d/{doc_id}")
 
 
 def main():
