@@ -272,7 +272,7 @@ def fill_services_table(doc_id, creds, services, table_index=0, start_row=1, sta
     return res
 
 
-def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, template_id, creds):
+def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, creds):
     """
     Opens each Document Studio-generated doc by its ID, inserts rows, and fills service table.
     """
