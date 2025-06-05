@@ -56,17 +56,20 @@ def extract_drive_file_id(url):
 
 def share_document(gdrive, doc_id, anyone=True, email=None):
     """
-    Shares a Google Doc either publicly (anyone with the link) or with a specific email.
+    Shares a Google Doc either publicly or with a specific email.
     """
+    # Define permission type and role
     body = {
         'type': 'anyone' if anyone else 'user',
         'role': 'writer',
     }
 
+    # If a specific email is provided, update the permission body
     if email:
         body['type'] = 'user'
         body['emailAddress'] = email
 
+    # Send the permission request to Google Drive API
     gdrive.permissions().create(
         fileId=doc_id,
         body=body,
@@ -282,8 +285,8 @@ def generate_docs_for_grouped_quotes(grouped_data, gdoc, gdrive, creds):
             print(f"Skipping Quote ID {entry['Quote ID']} (no doc ID found).")
             continue
 
-        # Share the document before modifying
-        share_document(gdrive, doc_id)
+        # # Share the document before modifying
+        # share_document(gdrive, doc_id)
 
         # Step 1: Insert correct number of empty rows
         insert_empty_row_after(doc_id, gdoc, entry)
@@ -346,7 +349,6 @@ def main():
         grouped_data=grouped_data,
         gdoc=gdoc,
         gdrive=gdrive,
-        template_id=TEMPLATE_DOC_ID,
         creds=creds
     )
 
