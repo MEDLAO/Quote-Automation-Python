@@ -25,7 +25,12 @@ print(f"Using document: https://docs.google.com/document/d/{DOCUMENT_ID}")
 
 
 # === Append a new row ===
-dummy_row = [["Translation", "English <> French", "Remote", "1500", "2", "0.12", "Standard rate", "180"]]
+# dummy_row = [["Translation", "English <> French", "Remote", "1500", "2", "0.12", "Standard rate", "180"]]
+
+dummy_rows = [
+    ["Translation", "English <> French", "Remote", "1500", "2", "0.12", "Standard rate", "180"],
+    ["Interpretation", "Arabic <> English", "On-site", "", "4", "50/hr", "Consecutive", "200"]
+]
 
 # === Set row at index 1 (after header) ===
 resource = {
@@ -34,7 +39,7 @@ resource = {
     "tableIndex": 0,  # First table
     "values": [
         {
-            "values": dummy_row,
+            "values": dummy_rows,
             "range": {
                 "startRowIndex": 1,  # Row just after header
                 "startColumnIndex": 0
