@@ -54,29 +54,6 @@ def extract_drive_file_id(url):
     return None
 
 
-def share_document(gdrive, doc_id, anyone=True, email=None):
-    """
-    Shares a Google Doc either publicly or with a specific email.
-    """
-    # Define permission type and role
-    body = {
-        'type': 'anyone' if anyone else 'user',
-        'role': 'writer',
-    }
-
-    # If a specific email is provided, update the permission body
-    if email:
-        body['type'] = 'user'
-        body['emailAddress'] = email
-
-    # Send the permission request to Google Drive API
-    gdrive.permissions().create(
-        fileId=doc_id,
-        body=body,
-        fields='id'
-    ).execute()
-
-
 # === STEP 2 - Group the fetched data per Quote-ID ===
 def group_rows_by_quote_id(data, header):
     """Group rows by Quote ID, skipping rows with Total == 'Manual' and removing empty groups."""
